@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101624">
+<title>Кипа</title>
+<style>
+:root{--bg:#EEF1F6;--surface:#FFFFFF;--ink:#14213D;--muted:#5B6783;--line:#D6DCE8;--accent:#2F5BFF;--on-accent:#FFFFFF;--coin:#E9A800;--me:#DDE5FF;--err:#C62828}
+@media (prefers-color-scheme:dark){:root{--bg:#101624;--surface:#182036;--ink:#E6EAF2;--muted:#8F9BB8;--line:#27314D;--accent:#7C9BFF;--on-accent:#0B1226;--coin:#F2B90F;--me:#223055;--err:#FF8A80}}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
+h1{font-size:20px;font-weight:800;letter-spacing:-.02em;flex:1}
+.pill{display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--bg);border:1px solid var(--line);font-weight:700;font-variant-numeric:tabular-nums}
+.pill::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--coin);box-shadow:inset 0 0 0 3px rgba(0,0,0,.12)}
+.tab{border:0;background:none;color:var(--muted);font:inherit;font-size:14px;padding:8px 6px}
+.tab.on{color:var(--accent);font-weight:700}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.view[hidden]{display:none}
+.msg{max-width:88%;padding:10px 13px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.me{align-self:flex-end;background:var(--me);border-bottom-right-radius:4px}
+.bot{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+.step,.cost{align-self:flex-start;color:var(--muted);font-size:14px;padding:0 6px}
+.cost{font-size:13px;font-variant-numeric:tabular-nums}
+.err{color:var(--err)}
+.empty{margin:auto;text-align:center;color:var(--muted);max-width:280px}
+.empty b{display:block;color:var(--ink);font-size:18px;margin-bottom:6px}
+form{display:flex;gap:8px;align-items:flex-end;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line)}
+form[hidden]{display:none}
+textarea,.field{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:14px;padding:10px 12px;font:inherit;width:100%}
+textarea{flex:1;resize:none;max-height:140px}
+.btn{border:0;border-radius:14px;padding:11px 16px;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:700}
+.btn.alt{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5}
+#att{width:44px;height:44px;padding:0;font-size:20px}
+.chip{font-size:13px;color:var(--muted);padding:0 14px 6px;background:var(--surface)}
+.file{text-align:left;width:100%;padding:12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--ink);font:inherit;overflow-wrap:anywhere}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;overflow-x:auto;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre}
+label{font-size:14px;color:var(--muted)}
+.modes{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 0;background:var(--surface)}.modes[hidden]{display:none}
+.mode{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;white-space:nowrap}
+.mode.on{background:var(--accent);color:var(--on-accent);border-color:transparent;font-weight:700}
+.shot{align-self:flex-start;max-width:92%;border-radius:12px;background:#fff;border:1px solid var(--line)}
+#ownbox[hidden]{display:none!important}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>Кипа</h1>
+  <div class="pill" id="bal">—</div>
+  <button class="tab on" data-v="chat">Чат</button>
+  <button class="tab" data-v="files">Файлы</button>
+  <button class="tab" data-v="set">Ещё</button>
+</header>
+
+<div class="view" id="chat"><div class="empty" id="empty"><b>Что делаем в Godot?</b>Например: «сделай 3D-платформер с прыжком и врагом». Можно прикрепить картинку.</div></div>
+<div class="chip" id="chip" hidden></div>
+<div class="modes" id="modes"></div>
+<form id="f">
+  <button type="button" class="btn alt" id="att" aria-label="Прикрепить картинку">+</button>
+  <input type="file" id="file" accept="image/*,.txt,.md,.csv,.pdf" hidden>
+  <textarea id="t" rows="1" placeholder="Напиши задачу для игры"></textarea>
+  <button class="btn" id="send">Отправить</button>
+</form>
+
+<div class="view" id="files" hidden></div>
+
+<div class="view" id="set" hidden>
+  <label for="prov">Чем думает Кипа</label>
+  <select class="field" id="prov"><option value="claude">Claude (ключ Anthropic)</option><option value="own">Своя модель по адресу</option></select>
+  <div id="ownbox" hidden style="display:flex;flex-direction:column;gap:10px">
+    <label for="base">Адрес модели (формат OpenAI), например http://192.168.1.5:11434/v1</label>
+    <input class="field" id="base" type="url" placeholder="http://адрес:порт/v1" autocapitalize="off">
+  </div>
+  <label for="key">Ключ API (для своей модели можно оставить пустым; хранится только на этом телефоне)</label>
+  <input class="field" id="key" type="password" placeholder="sk-ant-…" autocapitalize="off" autocomplete="off">
+  <label for="model">Модель</label>
+  <input class="field" id="model" autocapitalize="off">
+  <button class="btn" id="save">Сохранить</button>
+  <p id="saved" style="color:var(--muted)"></p>
+  <hr style="border:0;border-top:1px solid var(--line)">
+  <button class="btn alt" id="reset">Начать новый разговор</button>
+  <button class="btn alt" id="wipe">Очистить проект</button>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const IN_COIN=1,OUT_COIN=5,START=1e9,MAX_STEPS=20,LIMIT=5e6;
+const MULT={chat:1,code:3,search:6,vision:8,art:10,"3d":20},RANK=["chat","code","search","vision","art","3d"];
+const SEARCH_FEE=50000,up=(a,b)=>RANK.indexOf(b)>RANK.indexOf(a)?b:a;
+const LABEL={list_files:"Смотрю файлы проекта",read_file:"Читаю файл",write_file:"Пишу файл",delete_file:"Удаляю файл"};
+const SYSTEM=`Ты — Кипа, ИИ-помощник по созданию игр в Godot 4 (GDScript). Отвечай на языке пользователя.
+Ты работаешь через инструменты с виртуальным проектом Godot. Запустить игру ты не можешь, поэтому пиши код аккуратно и перепроверяй его сам: синтаксис Godot 4 (@export, @onready, CharacterBody3D, move_and_slide() без аргументов, сигналы через .connect()), правильные пути нод и имена файлов.
+Правила:
+- Сначала list_files, чтобы понять, что уже есть. Не переписывай то, что работает.
+- В project.godot задай run/main_scene, сцены пиши в текстовом формате .tscn (или собирай сцену из кода в _ready()).
+- Для 3D используй примитивы (CSG, MeshInstance3D с BoxMesh и т.д.), пока нет моделей.
+- В конце коротко скажи, что сделано, какие файлы созданы и как управлять игрой.`;
+const MODES={
+ chat:{n:"Чат",lv:"chat",p:""},
+ game:{n:"Игра",lv:"code",p:"РЕЖИМ «ИГРА»: сразу создай полный играбельный проект по описанию (project.godot, главная сцена, скрипты, управление, цели или враги, UI) без лишних вопросов. В конце дай список файлов и управление."},
+ photo:{n:"Фото",lv:"art",p:"РЕЖИМ «ФОТО»: растровые фото ты создать не можешь, поэтому нарисуй качественную SVG-иллюстрацию (viewBox, градиенты, детали) и сохрани через write_file в art/имя.svg. Скажи об этом одной фразой."},
+ doc:{n:"Документ",lv:"chat",p:"РЕЖИМ «ДОКУМЕНТ»: исправь орфографию, пунктуацию и стиль в присланном тексте или файле, не меняя смысл. Сохрани результат через write_file в docs/исправлено.md и коротко перечисли главные правки."},
+ m3d:{n:"3D",lv:"3d",p:"РЕЖИМ «3D»: создай низкополигональную модель текстовым файлом .obj (строки v и f, индексы с 1) через write_file в models/, и сцену .tscn, которая её подключает. Модель должна быть узнаваемой, до 300 граней."},
+ find:{n:"Поиск",lv:"search",p:"РЕЖИМ «ПОИСК МОДЕЛЕЙ»: ищи в интернете бесплатные 3D-модели и ассеты для игр (Kenney, Quaternius, Poly Pizza, OpenGameArt, itch.io, Sketchfab). Для каждой найденной дай название, ссылку, формат, лицензию и вердикт, можно ли вставлять в игру: CC0 — да, CC-BY — да с указанием автора, NC или неясная лицензия — нет или проверить. Лицензию бери только со страницы, не из памяти, и предупреди, что её нужно перепроверить перед релизом."}
+};
+let mode="chat";
+const TOOLS=[
+ {name:"list_files",description:"Список файлов проекта.",input_schema:{type:"object",properties:{}}},
+ {name:"read_file",description:"Прочитать файл проекта.",input_schema:{type:"object",properties:{path:{type:"string"}},required:["path"]}},
+ {name:"write_file",description:"Создать или перезаписать файл проекта (путь относительный, например scripts/player.gd).",input_schema:{type:"object",properties:{path:{type:"string"},content:{type:"string"}},required:["path","content"]}},
+ {name:"delete_file",description:"Удалить файл проекта.",input_schema:{type:"object",properties:{path:{type:"string"}},required:["path"]}}
+];
+
+// ---------- хранилище ----------
+const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let S=load("kipa_set",{key:"",model:"claude-sonnet-5-5"});
+let W=load("kipa_wallet",{balance:START,ledger:[]});
+let FILES=load("kipa_files",{"project.godot":'config_version=5\n\n[application]\nconfig/name="Kipa Project"\n'});
+let history=[],pending=null,busy=false;
+const fmt=n=>Math.round(n).toLocaleString("ru-RU");
+const showBal=()=>$("bal").textContent=fmt(W.balance);
+
+// ---------- вкладки ----------
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  for(const v of ["chat","files","set"])$(v).hidden=v!==b.dataset.v;
+  $("f").hidden=$("modes").hidden=b.dataset.v!=="chat";$("chip").hidden=b.dataset.v!=="chat"||!pending;
+  if(b.dataset.v==="files")renderFiles();
+});
+
+// ---------- чат ----------
+function add(cls,text){
+  $("empty")?.remove();
+  const d=document.createElement("div");d.className=cls;d.textContent=text;
+  $("chat").appendChild(d);d.scrollIntoView({block:"end"});return d;
+}
+$("t").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=e.target.scrollHeight+"px"});
+$("att").onclick=()=>$("file").click();
+$("file").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  try{
+    if(f.type.startsWith("image/"))pending={kind:"image",data:await shrink(f)};
+    else if(f.name.toLowerCase().endsWith(".pdf"))pending={kind:"pdf",data:(await readAs(f,"url")).split(",")[1]};
+    else pending={kind:"text",name:f.name,text:(await readAs(f,"text")).slice(0,60000)};
+    $("chip").textContent="Файл прикреплён: "+f.name+" (нажми, чтобы убрать)";$("chip").hidden=false;
+  }catch(err){add("msg bot err","Не удалось открыть файл")}
+};
+$("chip").onclick=()=>{pending=null;$("chip").hidden=true};
+const readAs=(f,t)=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;t==="url"?r.readAsDataURL(f):r.readAsText(f)});
+function shrink(file){
+  return new Promise((ok,no)=>{
+    const img=new Image(),u=URL.createObjectURL(file);
+    img.onload=()=>{
+      const k=Math.min(1,1280/Math.max(img.width,img.height)),c=document.createElement("canvas");
+      c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);
+      ok(c.toDataURL("image/jpeg",.85).split(",")[1]);
+    };
+    img.onerror=()=>no(new Error("Не удалось открыть картинку"));img.src=u;
+  });
+}
+
+$("f").onsubmit=async e=>{
+  e.preventDefault();
+  const text=$("t").value.trim();if(!text||busy)return;
+  if(!S.key&&S.provider!=="own"){add("msg bot err","Сначала вставь ключ API: вкладка «Ещё».");return}
+  if(S.provider==="own"&&!S.base){add("msg bot err","Впиши адрес своей модели: вкладка «Ещё».");return}
+  if(W.balance<=0){add("msg bot err","Коины закончились.");return}
+  $("t").value="";$("t").style.height="auto";busy=true;$("send").disabled=true;
+  add("msg me",(pending?"[файл] ":"")+text);
+  const att=pending;pending=null;$("chip").hidden=true;
+  await (S.provider==="own"?askOwn:ask)(text,att);
+  busy=false;$("send").disabled=false;
+};
+
+async function ask(text,att){
+  const mark=history.length;
+  let content=text;
+  if(att){const blk=att.kind==="image"?{type:"image",source:{type:"base64",media_type:"image/jpeg",data:att.data}}:att.kind==="pdf"?{type:"document",source:{type:"base64",media_type:"application/pdf",data:att.data}}:{type:"text",text:"Файл «"+att.name+"»:\n"+att.text};content=[blk,{type:"text",text}]}
+  history.push({role:"user",content});
+  let cost=0,fees=0,level=up(MODES[mode].lv,att&&att.kind!=="text"?"vision":"chat"),steps=0,ok=false;
+  try{
+    for(steps=1;steps<=MAX_STEPS;steps++){
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{
+        "content-type":"application/json","x-api-key":S.key,"anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:S.model,max_tokens:8000,system:SYSTEM+"\n"+MODES[mode].p,tools:mode==="find"?[...TOOLS,{type:"web_search_20250305",name:"web_search",max_uses:5}]:TOOLS,messages:history})});
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.error&&j.error.message||("код "+r.status));
+      cost+=j.usage.input_tokens*IN_COIN+j.usage.output_tokens*OUT_COIN;
+      fees+=((j.usage.server_tool_use||{}).web_search_requests||0)*SEARCH_FEE;
+      history.push({role:"assistant",content:j.content});
+      for(const b of j.content)if(b.type==="server_tool_use")add("step","Ищу в интернете: "+((b.input||{}).query||"")+"…");
+      for(const b of j.content)if(b.type==="text"&&b.text.trim())add("msg bot",b.text);
+      if(j.stop_reason==="pause_turn")continue;
+      if(j.stop_reason!=="tool_use")break;
+      const res=[];
+      for(const b of j.content){
+        if(b.type!=="tool_use")continue;
+        add("step",(LABEL[b.name]||b.name)+(b.input.path?": "+b.input.path:"")+"…");
+        if(b.name==="write_file")level=up(level,"code");
+        res.push({type:"tool_result",tool_use_id:b.id,content:runTool(b.name,b.input)});
+        if(b.name==="write_file"&&/\.svg$/i.test(b.input.path||""))showSvg(String(b.input.content));
+      }
+      history.push({role:"user",content:res});
+      if(cost*MULT[level]+fees>LIMIT){add("msg bot","Остановилась: достигнут лимит коинов на один запрос.");break}
+    }
+    ok=true;
+  }catch(err){
+    add("msg bot err","Ошибка: "+err.message+(err.message==="Failed to fetch"?" (нет интернета или запрос заблокирован)":""));
+  }finally{
+    if(!ok)history.length=mark;
+    else if(att)history[mark]={role:"user",content:text+" [картинка была приложена]"};
+    const total=Math.min(Math.round(cost*MULT[level]+fees),W.balance);
+    W.balance-=total;W.ledger.push({t:new Date().toLocaleString("ru-RU"),coins:total,why:text.slice(0,40),level,steps});
+    W.ledger=W.ledger.slice(-50);save("kipa_wallet",W);showBal();
+    add("cost","−"+fmt(total)+" коинов · сложность ×"+MULT[level]);
+  }
+}
+
+let ohist=[];
+function settle(cost,fees,level,steps,text){
+  const total=Math.min(Math.round(cost*MULT[level]+fees),W.balance);
+  W.balance-=total;W.ledger.push({t:new Date().toLocaleString("ru-RU"),coins:total,why:text.slice(0,40),level,steps});
+  W.ledger=W.ledger.slice(-50);save("kipa_wallet",W);showBal();
+  add("cost","−"+fmt(total)+" коинов · сложность ×"+MULT[level]);
+}
+async function askOwn(text,att){
+  if(mode==="find"){add("msg bot err","Режим «Поиск» работает только с Claude: у своей модели нет выхода в интернет.");return}
+  if(att&&att.kind==="pdf"){add("msg bot err","Своя модель не читает PDF. Прикрепи текст или картинку.");return}
+  const mark=ohist.length;let content=text;
+  if(att&&att.kind==="image")content=[{type:"image_url",image_url:{url:"data:image/jpeg;base64,"+att.data}},{type:"text",text}];
+  else if(att)content="Файл «"+att.name+"»:\n"+att.text+"\n\n"+text;
+  ohist.push({role:"user",content});
+  const tools=TOOLS.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:t.input_schema}}));
+  let cost=0,level=up(MODES[mode].lv,att&&att.kind==="image"?"vision":"chat"),steps=0,ok=false;
+  try{
+    for(steps=1;steps<=MAX_STEPS;steps++){
+      const r=await fetch(S.base.replace(/\/+$/,"")+"/chat/completions",{method:"POST",
+        headers:Object.assign({"content-type":"application/json"},S.key?{authorization:"Bearer "+S.key}:{}),
+        body:JSON.stringify({model:S.model,messages:[{role:"system",content:SYSTEM+"\n"+MODES[mode].p}].concat(ohist),tools})});
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.error&&(j.error.message||j.error)||("код "+r.status));
+      const m=j.choices[0].message,u=j.usage||{};
+      cost+=(u.prompt_tokens||0)*IN_COIN+(u.completion_tokens||0)*OUT_COIN;
+      ohist.push(m);
+      if(m.content&&m.content.trim())add("msg bot",m.content);
+      if(!m.tool_calls||!m.tool_calls.length)break;
+      for(const c of m.tool_calls){
+        let a={};try{a=JSON.parse(c.function.arguments||"{}")}catch(e){}
+        const n=c.function.name;add("step",(LABEL[n]||n)+(a.path?": "+a.path:"")+"…");
+        if(n==="write_file")level=up(level,"code");
+        ohist.push({role:"tool",tool_call_id:c.id,content:runTool(n,a)});
+        if(n==="write_file"&&/\.svg$/i.test(a.path||""))showSvg(String(a.content));
+      }
+      if(cost*MULT[level]>LIMIT){add("msg bot","Остановилась: достигнут лимит коинов на один запрос.");break}
+    }
+    ok=true;
+  }catch(err){
+    add("msg bot err","Ошибка: "+err.message+(err.message==="Failed to fetch"?" (проверь адрес, что модель запущена и разрешает запросы из приложения)":""));
+  }finally{
+    if(!ok)ohist.length=mark;
+    settle(cost,0,level,steps,text);
+  }
+}
+function showSvg(code){
+  const i=document.createElement("img");i.className="shot";i.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(code);
+  $("chat").appendChild(i);i.scrollIntoView({block:"end"});
+}
+function runTool(name,a){
+  try{
+    if(name==="list_files")return Object.keys(FILES).sort().join("\n")||"(проект пуст)";
+    const p=String(a.path||"").replace(/^\/+/,"").replace(/^res:\/\//,"");
+    if(p.includes("..")||!p)return "Ошибка: недопустимый путь";
+    if(name==="read_file")return p in FILES?FILES[p].slice(0,20000):"Ошибка: файла нет";
+    if(name==="write_file"){FILES[p]=String(a.content);save("kipa_files",FILES);return "Записано: "+p+" ("+a.content.length+" символов)"}
+    if(name==="delete_file"){delete FILES[p];save("kipa_files",FILES);return "Удалено: "+p}
+    return "Неизвестный инструмент";
+  }catch(e){return "Ошибка инструмента: "+e.message}
+}
+
+// ---------- файлы ----------
+function renderFiles(){
+  const v=$("files");v.innerHTML="";
+  const names=Object.keys(FILES).sort();
+  const top=document.createElement("div");top.className="row";
+  top.innerHTML='<button class="btn" id="zipb">Скачать zip</button><button class="btn alt" id="copyall">Копировать всё</button>';
+  v.appendChild(top);
+  $("zipb").onclick=downloadZip;
+  $("copyall").onclick=()=>copy(names.map(n=>"=== "+n+" ===\n"+FILES[n]).join("\n\n"),$("copyall"));
+  for(const n of names){
+    const b=document.createElement("button");b.className="file";b.textContent=n+"  ·  "+FILES[n].length+" симв.";
+    b.onclick=()=>openFile(n);v.appendChild(b);
+  }
+}
+function openFile(n){
+  const v=$("files");v.innerHTML="";
+  const row=document.createElement("div");row.className="row";
+  row.innerHTML='<button class="btn alt" id="back">Назад</button><button class="btn" id="cp">Копировать</button>';
+  const pre=document.createElement("pre");pre.textContent=FILES[n];
+  v.append(row,pre);preview(n,v);
+  $("back").onclick=renderFiles;$("cp").onclick=()=>copy(FILES[n],$("cp"));
+}
+function preview(n,v){
+  if(/\.svg$/i.test(n)){const i=document.createElement("img");i.className="shot";i.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(FILES[n]);v.prepend(i)}
+  else if(/\.obj$/i.test(n))objView(FILES[n],v);
+}
+function objView(src,v){
+  const V=[],E=new Set();
+  for(const l of src.split("\n")){const t=l.trim().split(/\s+/);
+    if(t[0]==="v")V.push(t.slice(1,4).map(Number));
+    else if(t[0]==="f"){const f=t.slice(1).map(x=>parseInt(x)-1);for(let i=0;i<f.length;i++){const a=f[i],b=f[(i+1)%f.length];E.add(a<b?a+","+b:b+","+a)}}}
+  if(!V.length)return;
+  let m=0;for(const p of V)for(const c of p)m=Math.max(m,Math.abs(c));m=m||1;
+  const c=document.createElement("canvas");c.width=c.height=320;
+  c.style.cssText="width:100%;max-width:360px;align-self:center;background:var(--surface);border:1px solid var(--line);border-radius:12px";
+  v.prepend(c);const g=c.getContext("2d");let a=0;
+  (function draw(){
+    if(!c.isConnected)return;a+=.02;const s=Math.sin(a),k=Math.cos(a);
+    g.clearRect(0,0,320,320);g.strokeStyle="#7C9BFF";g.beginPath();
+    const P=V.map(([x,y,z])=>[160+(x*k+z*s)/m*120,160-y/m*120]);
+    for(const e of E){const[i,j]=e.split(",").map(Number);if(P[i]&&P[j]){g.moveTo(P[i][0],P[i][1]);g.lineTo(P[j][0],P[j][1])}}
+    g.stroke();requestAnimationFrame(draw);
+  })();
+}
+async function copy(text,btn){
+  const old=btn.textContent;
+  try{await navigator.clipboard.writeText(text);btn.textContent="Скопировано"}
+  catch(e){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");btn.textContent="Скопировано"}catch(x){btn.textContent="Не вышло"}ta.remove()}
+  setTimeout(()=>btn.textContent=old,1500);
+}
+
+// ---------- zip без библиотек (хранение без сжатия) ----------
+function crc32(b){
+  let t=crc32.t;
+  if(!t){t=crc32.t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}
+  let r=-1;for(let i=0;i<b.length;i++)r=t[(r^b[i])&255]^(r>>>8);return(r^-1)>>>0;
+}
+function makeZip(files){
+  const enc=new TextEncoder(),parts=[],cd=[],u16=n=>[n&255,n>>8&255],u32=n=>[n&255,n>>8&255,n>>16&255,n>>>24&255];
+  let off=0;
+  for(const[name,text]of Object.entries(files)){
+    const nb=enc.encode(name),d=enc.encode(text),crc=crc32(d);
+    const lh=new Uint8Array([0x50,0x4b,3,4,...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(d.length),...u32(d.length),...u16(nb.length),...u16(0)]);
+    parts.push(lh,nb,d);
+    cd.push(new Uint8Array([0x50,0x4b,1,2,...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(d.length),...u32(d.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nb);
+    off+=lh.length+nb.length+d.length;
+  }
+  const size=cd.reduce((a,x)=>a+x.length,0),n=cd.length/2;
+  const end=new Uint8Array([0x50,0x4b,5,6,...u16(0),...u16(0),...u16(n),...u16(n),...u32(size),...u32(off),...u16(0)]);
+  return new Blob([...parts,...cd,end],{type:"application/zip"});
+}
+function downloadZip(){
+  const a=document.createElement("a");a.href=URL.createObjectURL(makeZip(FILES));a.download="kipa_project.zip";
+  document.body.appendChild(a);a.click();a.remove();
+}
+
+// ---------- настройки ----------
+$("key").value=S.key;$("model").value=S.model;$("base").value=S.base||"";$("prov").value=S.provider||"claude";
+const sync=()=>$("ownbox").hidden=$("prov").value!=="own";$("prov").onchange=sync;sync();
+$("save").onclick=()=>{S={key:$("key").value.trim(),model:$("model").value.trim()||"claude-sonnet-5-5",provider:$("prov").value,base:$("base").value.trim()};save("kipa_set",S);$("saved").textContent="Сохранено."};
+$("reset").onclick=()=>{history=[];ohist=[];$("chat").innerHTML='<div class="empty" id="empty"><b>Новый разговор</b>Файлы проекта остались на месте.</div>';document.querySelector('[data-v=chat]').click()};
+$("wipe").onclick=()=>{if(confirm("Удалить все файлы проекта?")){FILES={"project.godot":'config_version=5\n\n[application]\nconfig/name="Kipa Project"\n'};save("kipa_files",FILES);$("saved").textContent="Проект очищен."}};
+$("modes").innerHTML=Object.entries(MODES).map(([k,m])=>'<button type="button" class="mode'+(k===mode?" on":"")+'" data-m="'+k+'">'+m.n+"</button>").join("");
+$("modes").onclick=e=>{const k=e.target.dataset.m;if(!k)return;mode=k;[...$("modes").children].forEach(x=>x.classList.toggle("on",x.dataset.m===k))};
+showBal();
+if(!S.key&&S.provider!=="own")document.querySelector('[data-v=set]').click();
+</script>
+</body>
+</html>
